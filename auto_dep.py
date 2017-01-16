@@ -51,7 +51,7 @@ class AutoDep(object):
             obj_list = objs.list()
             for obj in obj_list:
                 if obj.name == target_obj_name:
-                    break
+                    return
             time.sleep(3)
             count += 3
         if count > TIMEOUT:
@@ -118,8 +118,7 @@ class AutoDep(object):
         server_names = []
         for server in servers:
             server_names.append(server.name)
-            #DB_INSTANCE_NAME
-            if server.name == 'RHEL-65-MYSQL':
+            if server.name == DB_INSTANCE_NAME:
                 db_instance = server
 
         if not db_instance:
@@ -146,7 +145,7 @@ class AutoDep(object):
             # Create the wordpress blog server
             # Nova-Network
             db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
-            blog_script_path = path.join(path.curdir, 'script.blog_server.txt')
+            blog_script_path = path.join(path.curdir, 'scripts/blog_server.txt')
             blog_script = open(blog_script_path, 'r').read()
             blog_script = blog_script.format(DB_NAME, DB_USER, DB_PASS, db_instance_ip)
             blog_instance = self.nova.servers.create(
