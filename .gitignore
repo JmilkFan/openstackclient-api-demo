@@ -1,2 +1,2 @@
-images/
+*.qcow2
 *.pyc
