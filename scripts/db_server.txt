@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+cat << EOF | tee /etc/apt/sources.list
+deb http://200.21.0.30/ubuntu/ precise main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-security main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-updates main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-proposed main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-backports main restricted universe multiverse
+EOF
+
+sudo apt-get update -y
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password fanguiju'
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password fanguiju'
+sudo apt-get install -y mysql-server
+sudo sed -i s/'127.0.0.1'/'0.0.0.0'/ /etc/mysql/my.cnf
+sudo service mysql restart
+
+mysql -uroot -pfanguiju << EOF
+CREATE DATABASE IF NOT EXISTS {} default charset utf8 COLLATE utf8_general_ci;
+GRANT ALL ON {}.* TO {}@'%' IDENTIFIED BY '{}';
+FLUSH PRIVILEGES;
+exit;
+EOF

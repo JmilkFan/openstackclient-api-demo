@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+cat << EOF | tee /etc/apt/sources.list
+deb http://200.21.0.30/ubuntu/ precise main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-security main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-updates main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-proposed main restricted universe multiverse
+deb http://200.21.0.30/ubuntu/ precise-backports main restricted universe multiverse
+EOF
+
+sudo apt-get update -y
+sudo apt-get install -y unzip
+sudo apt-get install -y apache2 php5-gd libapache2-mod-php5 php5-mysql php5
+sudo apt-get install -y mysql-client-core-5.5
+wget http://200.21.18.3/wordpress-4.7.1-zh_CN.tar.gz -O /tmp/wordpress-4.7.1-zh_CN.tar.gz
+tar zxvf /tmp/wordpress-4.7.1-zh_CN.tar.gz -C /var/www
+cp /var/www/wordpress/wp-config-sample.php /var/www/wordpress/wp-config.php
+sed -i s/"define('DB_NAME', 'database_name_here');"/"define('DB_NAME', '{}');"/ /var/www/wordpress/wp-config.php
+sed -i s/"define('DB_USER', 'username_here');"/"define('DB_USER', '{}');"/ /var/www/wordpress/wp-config.php
+sed -i s/"define('DB_PASSWORD', 'password_here');"/"define('DB_PASSWORD', '{}');"/ /var/www/wordpress/wp-config.php
+sed -i s/"define('DB_HOST', 'localhost');"/"define('DB_HOST', '{}');"/ /var/www/wordpress/wp-config.php
