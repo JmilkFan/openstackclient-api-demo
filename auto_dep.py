@@ -11,7 +11,7 @@ PASSWORD = 'fanguiju'
 PROJECT_NAME = 'admin'
 
 DISK_FORMAT = 'qcow2'
-IMAGE_NAME = 'redhat6.5_x86_64_cloud'
+IMAGE_NAME = 'ubuntu_server_1404_x64'
 IMAGE_PATH = path.join(path.curdir, 'images', '.'.join([IMAGE_NAME, DISK_FORMAT]))
 
 MIN_DISK_SIZE_GB = 20
@@ -77,8 +77,6 @@ class AutoDep(object):
         db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
         db_script = open(db_script_path, 'r').read()
         db_script = db_script.format(DB_NAME, DB_NAME, DB_USER, DB_PASS)
-        import pdb
-        pdb.set_trace()
         db_instance = self.nova.servers.create(
             'RHEL-65-MYSQL',
             image.id,
@@ -87,7 +85,8 @@ class AutoDep(object):
             userdata=db_script)
         time.sleep(10)
 
-        db_instance_ip = nova.servers.get(db_instance.id).networks['db_network'][0]
+        # Nova-Network
+        db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
         blog_script_path = path.join(path.curdir, 'script.blog_server.txt')
         blog_script = open(blog_script_path, 'r').read()
         blog_script = blog_script.format(DB_NAME, DB_USER, DB_PASS, db_instance_ip)
@@ -112,4 +111,6 @@ def main(argv):
     deploy.nova_boot(image)
 
 if __name__ == '__main__':
-     main(sys.argv)
+    import pdb
+    pdb.set_trace()
+    main(sys.argv)
