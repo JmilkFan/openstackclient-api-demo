@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+DB_NAME={}
 cat << EOF | tee /etc/apt/sources.list
 deb http://mirrors.aliyun.com/ubuntu/ trusty main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ trusty-security main restricted universe multiverse
@@ -21,13 +22,13 @@ sudo sed -i s/'127.0.0.1'/'0.0.0.0'/ /etc/mysql/my.cnf
 sudo service mysql restart
 
 mysql -uroot -pfanguiju << EOF
-CREATE DATABASE IF NOT EXISTS {} default charset utf8 COLLATE utf8_general_ci;
-GRANT ALL ON {}.* TO {}@'%' IDENTIFIED BY '{}';
+CREATE DATABASE IF NOT EXISTS $DB_NAME default charset utf8 COLLATE utf8_general_ci;
+GRANT ALL ON $DB_NAME.* TO {}@'%' IDENTIFIED BY '{}';
 FLUSH PRIVILEGES;
 exit;
 EOF
 
-sudo chown ubuntu.ubuntu /var/lib/mysql
+sudo chown -R ubuntu.ubuntu /var/lib/mysql
 
 # Create partitions
 sudo fdisk -c /dev/vdb << __EOF__ > /dev/null 2>&1
@@ -50,4 +51,9 @@ sudo mkfs.ext4 /dev/vdb1
 sudo e2fsck -p -f /dev/vdb1
 sudo resize2fs /dev/vdb1
 # Mount the vdb1 to /var/lib/mysql
-sudo mount /dev/vdb1 /var/lib/mysql
+sudo mount /dev/vdb1 /var/lib/mysql/$DB_NAME
+
+cat << EOF | tee /var/lib/mysql/$DB_NAME/db.opt
+default-character-set=utf8
+default-collation=utf8_general_ci
+EOF

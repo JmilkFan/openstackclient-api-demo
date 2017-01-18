@@ -109,7 +109,7 @@ class AutoDep(object):
             # Create the mysql server
             db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
             db_script = open(db_script_path, 'r').read()
-            db_script = db_script.format(DB_NAME, DB_NAME, DB_USER, DB_PASS)
+            db_script = db_script.format(DB_NAME, DB_USER, DB_PASS)
             db_instance = self.nova.servers.create(
                 DB_INSTANCE_NAME,
                 image.id,
