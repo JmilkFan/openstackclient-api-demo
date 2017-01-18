@@ -22,17 +22,19 @@ KEYPAIT_PUB_PATH = '/home/stack/.ssh/id_rsa.pub'
 DB_NAME = 'blog'
 DB_USER = 'wordpress'
 DB_PASS = 'fanguiju'
+DB_BACKUP_SIZE = 5
 
 
 class AutoDep(object):
     def __init__(self, auth_url, username, password, tenant_name):
-        self.openstack_clients = os_cli.OpenstackClients(
+        openstack_clients = os_cli.OpenstackClients(
             auth_url,
             username,
             password,
             tenant_name)
-        self.glance = self.openstack_clients.get_glance_client()
-        self.nova = self.openstack_clients.get_nova_client()
+        self.glance = openstack_clients.get_glance_client()
+        self.nova = openstack_clients.get_nova_client()
+        self.cinder = openstack_clients.get_cinder_client()
     
     def upload_image_to_glance(self):
         images = self.glance.images.list()
@@ -50,6 +52,18 @@ class AutoDep(object):
         image = self.glance.images.get(new_image.id)
         return image
     
+    def create_volume(self):
+        # /usr/local/lib/python2.7/dist-packages/cinderclient/v2/volumes.py
+        new_volume = self.cinder.volumes.create(
+            size=DB_BACKUP_SIZE,
+            name='mysql-vol',
+            volume_type='lvmdriver-1',
+            availability_zone='nova',
+            description='backup volume of mysql server.')
+        time.sleep(10)
+        volume = self.cinder.volumes.get(new_volume.id)
+        return volume
+
     def get_flavor_id(self):
         flavors = self.nova.flavors.list()
         for flavor in flavors:
@@ -107,10 +121,11 @@ def main(argv):
                      username=USERNAME,
                      password=PASSWORD,
                      tenant_name=PROJECT_NAME)
+    import pdb
+    pdb.set_trace()
+    deploy.create_volume()
     image = deploy.upload_image_to_glance()
     deploy.nova_boot(image)
 
 if __name__ == '__main__':
-    import pdb
-    pdb.set_trace()
     main(sys.argv)

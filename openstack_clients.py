@@ -2,11 +2,13 @@ from openstackclient.identity.client import identity_client_v2
 from keystoneclient import session as identity_session
 import glanceclient
 import novaclient.client as novaclient
+import cinderclient.client as cinderclient
 
 
 # FIXME(JmilkFan): Using oslo_config
 NOVA_CLI_VER = 2
 GLANCE_CLI_VER = 2
+CINDER_CLI_VER = 2
 
 
 class OpenstackClients(object):
@@ -45,3 +47,10 @@ class OpenstackClients(object):
         # Initialize client object based on given version. Don't need endpoint.
         nova_client = novaclient.Client(NOVA_CLI_VER, session=self.session)
         return nova_client
+
+    def get_cinder_client(self, interface='public'):
+        """Get the cinder-client object."""
+        cinder_endpoint = self.session.get_endpoint(service_type='volume',
+                                                    interface=interface)
+        cinder_client = cinderclient.Client(CINDER_CLI_VER, session=self.session)
+        return cinder_client
