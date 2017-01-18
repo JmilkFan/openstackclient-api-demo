@@ -26,3 +26,28 @@ GRANT ALL ON {}.* TO {}@'%' IDENTIFIED BY '{}';
 FLUSH PRIVILEGES;
 exit;
 EOF
+
+sudo chown ubuntu.ubuntu /var/lib/mysql
+
+# Create partitions
+sudo fdisk -c /dev/vdb << __EOF__ > /dev/null 2>&1
+d
+n
+p
+1
+
+
+t
+1
+83
+a
+1
+w
+__EOF__
+# Disk format
+sudo mkfs.ext4 /dev/vdb1
+# Resize filesystem
+sudo e2fsck -p -f /dev/vdb1
+sudo resize2fs /dev/vdb1
+# Mount the vdb1 to /var/lib/mysql
+sudo mount /dev/vdb1 /var/lib/mysql

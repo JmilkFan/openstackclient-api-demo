@@ -5,6 +5,7 @@ import time
 
 import openstack_clients as os_cli
 
+# FIXME(Fan Guiju): Using oslo_config and logging
 AUTH_URL = 'http://200.21.18.3:35357/v2.0/'
 USERNAME = 'admin'
 PASSWORD = 'fanguiju'
@@ -24,6 +25,10 @@ DB_USER = 'wordpress'
 DB_PASS = 'fanguiju'
 DB_BACKUP_SIZE = 5
 DB_VOL_NAME = 'mysql-vol'
+DB_INSTANCE_NAME = 'AUTO-DEP-DB'
+MOUNT_POINT = '/dev/vdb'
+
+BLOG_INSTANCE_NAME = 'AUTO-DEP-BLOG'
 
 
 class AutoDep(object):
@@ -74,56 +79,69 @@ class AutoDep(object):
             if flavor.disk == MIN_DISK_SIZE_GB:
                 return flavor.id
     
-    def get_ssh_pub_key(self):
+    def _get_ssh_pub_key(self):
         if not path.exists(KEYPAIT_PUB_PATH):
             raise
         return open(KEYPAIT_PUB_PATH, 'rb').read()
         
     def import_keypair_to_nova(self):
         keypairs = self.nova.keypairs.list()
-        keypair_names = []
         for keypair in keypairs:
-            keypair_names.append(keypair.name)
-        if KEYPAIR_NAME not in keypair_names:
-            keypair_pub = get_ssh_pub_key()
-            self.nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
+            if keypair.name == KEYPAIR_NAME:
+                return None
+        keypair_pub = self._get_ssh_pub_key()
+        self.nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
         
     def nova_boot(self, image, volume):
         flavor_id = self.get_flavor_id()
         self.import_keypair_to_nova()
+        db_instance = None
 
-        # Create the mysql server
-        db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
-        db_script = open(db_script_path, 'r').read()
-        db_script = db_script.format(DB_NAME, DB_NAME, DB_USER, DB_PASS)
-        db_instance = self.nova.servers.create(
-            'RHEL-65-MYSQL',
-            image.id,
-            flavor_id,
-            key_name=KEYPAIR_NAME,
-            userdata=db_script)
-        time.sleep(10)
+        servers = self.nova.servers.list()
+        server_names = []
+        for server in servers:
+            server_names.append(server.name)
+            #DB_INSTANCE_NAME
+            if server.name == 'RHEL-65-MYSQL':
+                db_instance = server
+
+        if not db_instance:
+            # Create the mysql server
+            db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
+            db_script = open(db_script_path, 'r').read()
+            db_script = db_script.format(DB_NAME, DB_NAME, DB_USER, DB_PASS)
+            db_instance = self.nova.servers.create(
+                DB_INSTANCE_NAME,
+                image.id,
+                flavor_id,
+                key_name=KEYPAIR_NAME,
+                userdata=db_script)
+            time.sleep(10)
+
         # Attach the mysql-vol into mysql server, device type is `vd`.
+        # NOTE(Fan Guiju): What's mountpoint mean?
         self.cinder.volumes.attach(volume=volume,
                                    instance_uuid=db_instance.id,
-                                   mountpoint='/mnt')
+                                   mountpoint=MOUNT_POINT)
         time.sleep(5)
 
-        # Create the wordpress blog server
-        # Nova-Network
-        db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
-        blog_script_path = path.join(path.curdir, 'script.blog_server.txt')
-        blog_script = open(blog_script_path, 'r').read()
-        blog_script = blog_script.format(DB_NAME, DB_USER, DB_PASS, db_instance_ip)
-        blog_instance = self.nova.servers.create(
-            'RHEL-65-WORDPRESS',
-            image.id,
-            flavor_id,
-            key_name=KEYPAIR_NAME,
-            userdata=blog_script)
-        time.sleep(20)
+        if BLOG_INSTANCE_NAME not in server_names:
+            # Create the wordpress blog server
+            # Nova-Network
+            db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
+            blog_script_path = path.join(path.curdir, 'script.blog_server.txt')
+            blog_script = open(blog_script_path, 'r').read()
+            blog_script = blog_script.format(DB_NAME, DB_USER, DB_PASS, db_instance_ip)
+            blog_instance = self.nova.servers.create(
+                BLOG_INSTANCE_NAME,
+                image.id,
+                flavor_id,
+                key_name=KEYPAIR_NAME,
+                userdata=blog_script)
+            time.sleep(20)
 
         servers = self.nova.servers.list(search_opts={'all_tenants':True})
+        return servers
 
 def main(argv):
     os.environ['LANG'] = 'en_US.UTF8'
@@ -136,7 +154,7 @@ def main(argv):
     pdb.set_trace()
     image = deploy.upload_image_to_glance()
     volume = deploy.create_volume()
-    deploy.nova_boot(image, volume)
+    servers = deploy.nova_boot(image, volume)
 
 if __name__ == '__main__':
     main(sys.argv)
