@@ -23,6 +23,7 @@ DB_NAME = 'blog'
 DB_USER = 'wordpress'
 DB_PASS = 'fanguiju'
 DB_BACKUP_SIZE = 5
+DB_VOL_NAME = 'mysql-vol'
 
 
 class AutoDep(object):
@@ -53,16 +54,19 @@ class AutoDep(object):
         return image
     
     def create_volume(self):
-        # /usr/local/lib/python2.7/dist-packages/cinderclient/v2/volumes.py
+        volumes = self.cinder.volumes.list()
+        for volume in volumes:
+            if volume.name == DB_VOL_NAME:
+                return volume
+        # cinderclient.v2.volumes:VolumeManager
         new_volume = self.cinder.volumes.create(
             size=DB_BACKUP_SIZE,
-            name='mysql-vol',
+            name=DB_VOL_NAME,
             volume_type='lvmdriver-1',
             availability_zone='nova',
             description='backup volume of mysql server.')
         time.sleep(10)
-        volume = self.cinder.volumes.get(new_volume.id)
-        return volume
+        return new_volume
 
     def get_flavor_id(self):
         flavors = self.nova.flavors.list()
@@ -84,10 +88,11 @@ class AutoDep(object):
             keypair_pub = get_ssh_pub_key()
             self.nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
         
-    def nova_boot(self, image):
+    def nova_boot(self, image, volume):
         flavor_id = self.get_flavor_id()
         self.import_keypair_to_nova()
 
+        # Create the mysql server
         db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
         db_script = open(db_script_path, 'r').read()
         db_script = db_script.format(DB_NAME, DB_NAME, DB_USER, DB_PASS)
@@ -98,7 +103,13 @@ class AutoDep(object):
             key_name=KEYPAIR_NAME,
             userdata=db_script)
         time.sleep(10)
+        # Attach the mysql-vol into mysql server, device type is `vd`.
+        self.cinder.volumes.attach(volume=volume,
+                                   instance_uuid=db_instance.id,
+                                   mountpoint='/mnt')
+        time.sleep(5)
 
+        # Create the wordpress blog server
         # Nova-Network
         db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
         blog_script_path = path.join(path.curdir, 'script.blog_server.txt')
@@ -123,9 +134,9 @@ def main(argv):
                      tenant_name=PROJECT_NAME)
     import pdb
     pdb.set_trace()
-    deploy.create_volume()
     image = deploy.upload_image_to_glance()
-    deploy.nova_boot(image)
+    volume = deploy.create_volume()
+    deploy.nova_boot(image, volume)
 
 if __name__ == '__main__':
     main(sys.argv)
