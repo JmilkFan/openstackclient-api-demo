@@ -30,6 +30,8 @@ MOUNT_POINT = '/dev/vdb'
 
 BLOG_INSTANCE_NAME = 'AUTO-DEP-BLOG'
 
+TIMEOUT = 60
+
 
 class AutoDep(object):
     def __init__(self, auth_url, username, password, tenant_name):
@@ -42,6 +44,19 @@ class AutoDep(object):
         self.nova = openstack_clients.get_nova_client()
         self.cinder = openstack_clients.get_cinder_client()
     
+    def _wait_for_done(self, objs, target_obj_name):
+        """Wait for action done."""
+        count = 0
+        while count <= TIMEOUT:
+            obj_list = objs.list()
+            for obj in obj_list:
+                if obj.name == target_obj_name:
+                    break
+            time.sleep(3)
+            count += 3
+        if count > TIMEOUT:
+            raise
+
     def upload_image_to_glance(self):
         images = self.glance.images.list()
         for image in images:
@@ -54,7 +69,8 @@ class AutoDep(object):
                                               visibility='public')
         # Open image file with read+binary.
         self.glance.images.upload(new_image.id, open(IMAGE_PATH, 'rb'))
-        time.sleep(5)
+        self._wait_for_done(objs=self.glance.images,
+                            target_obj_name=IMAGE_NAME)
         image = self.glance.images.get(new_image.id)
         return image
     
@@ -70,7 +86,8 @@ class AutoDep(object):
             volume_type='lvmdriver-1',
             availability_zone='nova',
             description='backup volume of mysql server.')
-        time.sleep(10)
+        self._wait_for_done(objs=self.cinder.volumes,
+                            target_obj_name=DB_VOL_NAME)
         return new_volume
 
     def get_flavor_id(self):
@@ -116,8 +133,8 @@ class AutoDep(object):
                 flavor_id,
                 key_name=KEYPAIR_NAME,
                 userdata=db_script)
-            time.sleep(10)
-
+            self._wait_for_done(objs=self.nova.servers,
+                                target_obj_name=DB_INSTANCE_NAME)
         # Attach the mysql-vol into mysql server, device type is `vd`.
         # NOTE(Fan Guiju): What's mountpoint mean?
         self.cinder.volumes.attach(volume=volume,
@@ -138,7 +155,8 @@ class AutoDep(object):
                 flavor_id,
                 key_name=KEYPAIR_NAME,
                 userdata=blog_script)
-            time.sleep(20)
+            self._wait_for_done(objs=self.nova.servers,
+                                target_obj_name=BLOG_INSTANCE_NAME)
 
         servers = self.nova.servers.list(search_opts={'all_tenants':True})
         return servers
