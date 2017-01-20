@@ -24,7 +24,7 @@ DB_NAME = 'blog'
 DB_USER = 'wordpress'
 DB_PASS = 'fanguiju'
 DB_BACKUP_SIZE = 5
-DB_VOL_NAME = 'mysql-vol'
+DB_VOL_NAME = 'mysql-volume'
 DB_INSTANCE_NAME = 'AUTO-DEP-DB'
 MOUNT_POINT = '/dev/vdb'
 
