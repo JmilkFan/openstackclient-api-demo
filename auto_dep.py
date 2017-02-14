@@ -5,6 +5,7 @@ import time
 
 import openstack_clients as os_cli
 
+
 # FIXME(Fan Guiju): Using oslo_config and logging
 AUTH_URL = 'http://200.21.18.3:35357/v2.0/'
 USERNAME = 'admin'
@@ -13,7 +14,8 @@ PROJECT_NAME = 'admin'
 
 DISK_FORMAT = 'qcow2'
 IMAGE_NAME = 'ubuntu_server_1404_x64'
-IMAGE_PATH = path.join(path.curdir, 'images', '.'.join([IMAGE_NAME, DISK_FORMAT]))
+IMAGE_PATH = path.join(path.curdir, 'images',
+                       '.'.join([IMAGE_NAME, DISK_FORMAT]))
 
 MIN_DISK_SIZE_GB = 20
 
@@ -60,8 +62,8 @@ class AutoDep(object):
     def upload_image_to_glance(self):
         images = self.glance.images.list()
         for image in images:
-           if image.name == IMAGE_NAME:
-               return image
+            if image.name == IMAGE_NAME:
+                return image
         new_image = self.glance.images.create(name=IMAGE_NAME,
                                               disk_format=DISK_FORMAT,
                                               container_format='bare',
@@ -144,21 +146,25 @@ class AutoDep(object):
         if BLOG_INSTANCE_NAME not in server_names:
             # Create the wordpress blog server
             # Nova-Network
-            db_instance_ip = self.nova.servers.get(db_instance.id).networks['private'][0]
+            db_instance_ip = self.nova.servers.\
+                get(db_instance.id).networks['private'][0]
             blog_script_path = path.join(path.curdir, 'scripts/blog_server.txt')
             blog_script = open(blog_script_path, 'r').read()
-            blog_script = blog_script.format(DB_NAME, DB_USER, DB_PASS, db_instance_ip)
-            blog_instance = self.nova.servers.create(
-                BLOG_INSTANCE_NAME,
-                image.id,
-                flavor_id,
-                key_name=KEYPAIR_NAME,
-                userdata=blog_script)
+            blog_script = blog_script.format(DB_NAME,
+                                             DB_USER,
+                                             DB_PASS,
+                                             db_instance_ip)
+            self.nova.servers.create(BLOG_INSTANCE_NAME,
+                                     image.id,
+                                     flavor_id,
+                                     key_name=KEYPAIR_NAME,
+                                     userdata=blog_script)
             self._wait_for_done(objs=self.nova.servers,
                                 target_obj_name=BLOG_INSTANCE_NAME)
 
-        servers = self.nova.servers.list(search_opts={'all_tenants':True})
+        servers = self.nova.servers.list(search_opts={'all_tenants': True})
         return servers
+
 
 def main(argv):
     os.environ['LANG'] = 'en_US.UTF8'
@@ -169,7 +175,7 @@ def main(argv):
                      tenant_name=PROJECT_NAME)
     image = deploy.upload_image_to_glance()
     volume = deploy.create_volume()
-    servers = deploy.nova_boot(image, volume)
+    deploy.nova_boot(image, volume)
 
 if __name__ == '__main__':
     main(sys.argv)
