@@ -43,7 +43,7 @@ class AutoDep(object):
         self.glance = openstack_clients.get_glance_client()
         self.nova = openstack_clients.get_nova_client()
         self.cinder = openstack_clients.get_cinder_client()
-    
+
     def _wait_for_done(self, objs, target_obj_name):
         """Wait for action done."""
         count = 0
@@ -73,7 +73,7 @@ class AutoDep(object):
                             target_obj_name=IMAGE_NAME)
         image = self.glance.images.get(new_image.id)
         return image
-    
+
     def create_volume(self):
         volumes = self.cinder.volumes.list()
         for volume in volumes:
@@ -95,12 +95,12 @@ class AutoDep(object):
         for flavor in flavors:
             if flavor.disk == MIN_DISK_SIZE_GB:
                 return flavor.id
-    
+
     def _get_ssh_pub_key(self):
         if not path.exists(KEYPAIT_PUB_PATH):
             raise
         return open(KEYPAIT_PUB_PATH, 'rb').read()
-        
+
     def import_keypair_to_nova(self):
         keypairs = self.nova.keypairs.list()
         for keypair in keypairs:
@@ -108,7 +108,7 @@ class AutoDep(object):
                 return None
         keypair_pub = self._get_ssh_pub_key()
         self.nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
-        
+
     def nova_boot(self, image, volume):
         flavor_id = self.get_flavor_id()
         self.import_keypair_to_nova()
@@ -167,8 +167,6 @@ def main(argv):
                      username=USERNAME,
                      password=PASSWORD,
                      tenant_name=PROJECT_NAME)
-    import pdb
-    pdb.set_trace()
     image = deploy.upload_image_to_glance()
     volume = deploy.create_volume()
     servers = deploy.nova_boot(image, volume)
