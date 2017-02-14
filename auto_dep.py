@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+#encoding=utf8
+
 import sys
 import os
 from os import path
@@ -50,14 +53,12 @@ class AutoDep(object):
         """Wait for action done."""
         count = 0
         while count <= TIMEOUT:
-            obj_list = objs.list()
-            for obj in obj_list:
+            for obj in objs.list():
                 if obj.name == target_obj_name:
                     return
             time.sleep(3)
             count += 3
-        if count > TIMEOUT:
-            raise
+        raise
 
     def upload_image_to_glance(self):
         images = self.glance.images.list()
@@ -114,7 +115,7 @@ class AutoDep(object):
     def nova_boot(self, image, volume):
         flavor_id = self.get_flavor_id()
         self.import_keypair_to_nova()
-        db_instance = None
+        db_instance = False
 
         servers = self.nova.servers.list()
         server_names = []
@@ -136,8 +137,7 @@ class AutoDep(object):
                 userdata=db_script)
             self._wait_for_done(objs=self.nova.servers,
                                 target_obj_name=DB_INSTANCE_NAME)
-        # Attach the mysql-vol into mysql server, device type is `vd`.
-        # NOTE(Fan Guiju): What's mountpoint mean?
+        # Attach the mysql-vol to mysql server, device type is `vd`.
         self.cinder.volumes.attach(volume=volume,
                                    instance_uuid=db_instance.id,
                                    mountpoint=MOUNT_POINT)
@@ -166,7 +166,7 @@ class AutoDep(object):
         return servers
 
 
-def main(argv):
+def main():
     os.environ['LANG'] = 'en_US.UTF8'
 
     deploy = AutoDep(auth_url=AUTH_URL,
@@ -178,4 +178,4 @@ def main(argv):
     deploy.nova_boot(image, volume)
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

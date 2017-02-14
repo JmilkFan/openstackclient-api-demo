@@ -31,7 +31,8 @@ EOF
 sudo chown -R ubuntu.ubuntu /var/lib/mysql
 
 # Create partitions
-sudo fdisk -c /dev/vdb << __EOF__ > /dev/null 2>&1
+sleep 60s
+sudo fdisk -c /dev/vdb << EOF > /dev/null 2>&1
 d
 n
 p
@@ -44,12 +45,12 @@ t
 a
 1
 w
-__EOF__
-# Disk format
+EOF
+
+# Formatted disk
 sudo mkfs.ext4 /dev/vdb1
 # Resize filesystem
 sudo e2fsck -p -f /dev/vdb1
-sudo resize2fs /dev/vdb1
 # Mount the vdb1 to /var/lib/mysql
 sudo mount /dev/vdb1 /var/lib/mysql/$DB_NAME
 

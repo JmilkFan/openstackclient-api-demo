@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+#encoding=utf8
+
 from openstackclient.identity.client import identity_client_v2
 from keystoneclient import session as identity_session
 import glanceclient
