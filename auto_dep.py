@@ -45,6 +45,7 @@ class AutoDep(object):
             username,
             password,
             tenant_name)
+        # FIXME(Fan Guiju): Using self._glance & self._nova & self._cinder
         self.glance = openstack_clients.get_glance_client()
         self.nova = openstack_clients.get_nova_client()
         self.cinder = openstack_clients.get_cinder_client()
@@ -129,7 +130,9 @@ class AutoDep(object):
             db_script_path = path.join(path.curdir, 'scripts/db_server.txt')
             db_script = open(db_script_path, 'r').read()
             db_script = db_script.format(DB_NAME, DB_USER, DB_PASS)
+            # FIXME(Fan Guiju): Using instance_uuid to check the action whether done.
             db_instance = self.nova.servers.create(
+                # FIXME(Fan Guiju): Using the params `block_device_mapping` to attach the volume.
                 DB_INSTANCE_NAME,
                 image.id,
                 flavor_id,
@@ -167,6 +170,7 @@ class AutoDep(object):
 
 
 def main():
+    """FIXME(Fan Guiju): Operation manual."""
     os.environ['LANG'] = 'en_US.UTF8'
 
     deploy = AutoDep(auth_url=AUTH_URL,
