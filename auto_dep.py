@@ -46,9 +46,9 @@ class AutoDep(object):
             password,
             tenant_name)
         # FIXME(Fan Guiju): Using self._glance & self._nova & self._cinder
-        self.glance = openstack_clients.get_glance_client()
-        self.nova = openstack_clients.get_nova_client()
-        self.cinder = openstack_clients.get_cinder_client()
+        self._glance = openstack_clients.get_glance_client()
+        self._nova = openstack_clients.get_nova_client()
+        self._cinder = openstack_clients.get_cinder_client()
 
     def _wait_for_done(self, objs, target_obj_name):
         """Wait for action done."""
@@ -62,40 +62,41 @@ class AutoDep(object):
         raise
 
     def upload_image_to_glance(self):
-        images = self.glance.images.list()
+        images = self._glance.images.list()
         for image in images:
             if image.name == IMAGE_NAME:
                 return image
-        new_image = self.glance.images.create(name=IMAGE_NAME,
-                                              disk_format=DISK_FORMAT,
-                                              container_format='bare',
-                                              min_disk=MIN_DISK_SIZE_GB,
-                                              visibility='public')
+        new_image = self._glance.images.create(name=IMAGE_NAME,
+                                               disk_format=DISK_FORMAT,
+                                               container_format='bare',
+                                               min_disk=MIN_DISK_SIZE_GB,
+                                               visibility='public')
         # Open image file with read+binary.
-        self.glance.images.upload(new_image.id, open(IMAGE_PATH, 'rb'))
-        self._wait_for_done(objs=self.glance.images,
+        self._glance.images.upload(new_image.id, open(IMAGE_PATH, 'rb'))
+        self._wait_for_done(objs=self._glance.images,
                             target_obj_name=IMAGE_NAME)
-        image = self.glance.images.get(new_image.id)
+        image = self._glance.images.get(new_image.id)
         return image
 
     def create_volume(self):
-        volumes = self.cinder.volumes.list()
+        volumes = self._cinder.volumes.list()
         for volume in volumes:
             if volume.name == DB_VOL_NAME:
                 return volume
         # cinderclient.v2.volumes:VolumeManager
-        new_volume = self.cinder.volumes.create(
+        new_volume = self._cinder.volumes.create(
             size=DB_BACKUP_SIZE,
             name=DB_VOL_NAME,
             volume_type='lvmdriver-1',
             availability_zone='nova',
             description='backup volume of mysql server.')
-        self._wait_for_done(objs=self.cinder.volumes,
-                            target_obj_name=DB_VOL_NAME)
-        return new_volume
+        if new_volume:
+            return new_volume
+        else:
+            raise
 
     def get_flavor_id(self):
-        flavors = self.nova.flavors.list()
+        flavors = self._nova.flavors.list()
         for flavor in flavors:
             if flavor.disk == MIN_DISK_SIZE_GB:
                 return flavor.id
@@ -106,19 +107,19 @@ class AutoDep(object):
         return open(KEYPAIT_PUB_PATH, 'rb').read()
 
     def import_keypair_to_nova(self):
-        keypairs = self.nova.keypairs.list()
+        keypairs = self._nova.keypairs.list()
         for keypair in keypairs:
             if keypair.name == KEYPAIR_NAME:
                 return None
         keypair_pub = self._get_ssh_pub_key()
-        self.nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
+        self._nova.keypairs.create(KEYPAIR_NAME, public_key=keypair_pub)
 
     def nova_boot(self, image, volume):
         flavor_id = self.get_flavor_id()
         self.import_keypair_to_nova()
         db_instance = False
 
-        servers = self.nova.servers.list()
+        servers = self._nova.servers.list()
         server_names = []
         for server in servers:
             server_names.append(server.name)
@@ -131,25 +132,26 @@ class AutoDep(object):
             db_script = open(db_script_path, 'r').read()
             db_script = db_script.format(DB_NAME, DB_USER, DB_PASS)
             # FIXME(Fan Guiju): Using instance_uuid to check the action whether done.
-            db_instance = self.nova.servers.create(
+            db_instance = self._nova.servers.create(
                 # FIXME(Fan Guiju): Using the params `block_device_mapping` to attach the volume.
                 DB_INSTANCE_NAME,
                 image.id,
                 flavor_id,
                 key_name=KEYPAIR_NAME,
                 userdata=db_script)
-            self._wait_for_done(objs=self.nova.servers,
-                                target_obj_name=DB_INSTANCE_NAME)
+            if not self._nova.server.get(db_instance.id):
+                self._wait_for_done(objs=self._nova.servers,
+                                    target_obj_name=DB_INSTANCE_NAME)
         # Attach the mysql-vol to mysql server, device type is `vd`.
-        self.cinder.volumes.attach(volume=volume,
-                                   instance_uuid=db_instance.id,
-                                   mountpoint=MOUNT_POINT)
+        self._cinder.volumes.attach(volume=volume,
+                                    instance_uuid=db_instance.id,
+                                    mountpoint=MOUNT_POINT)
         time.sleep(5)
 
         if BLOG_INSTANCE_NAME not in server_names:
             # Create the wordpress blog server
             # Nova-Network
-            db_instance_ip = self.nova.servers.\
+            db_instance_ip = self._nova.servers.\
                 get(db_instance.id).networks['private'][0]
             blog_script_path = path.join(path.curdir, 'scripts/blog_server.txt')
             blog_script = open(blog_script_path, 'r').read()
@@ -157,15 +159,15 @@ class AutoDep(object):
                                              DB_USER,
                                              DB_PASS,
                                              db_instance_ip)
-            self.nova.servers.create(BLOG_INSTANCE_NAME,
-                                     image.id,
-                                     flavor_id,
-                                     key_name=KEYPAIR_NAME,
-                                     userdata=blog_script)
-            self._wait_for_done(objs=self.nova.servers,
+            self._nova.servers.create(BLOG_INSTANCE_NAME,
+                                      image.id,
+                                      flavor_id,
+                                      key_name=KEYPAIR_NAME,
+                                      userdata=blog_script)
+            self._wait_for_done(objs=self._nova.servers,
                                 target_obj_name=BLOG_INSTANCE_NAME)
 
-        servers = self.nova.servers.list(search_opts={'all_tenants': True})
+        servers = self._nova.servers.list(search_opts={'all_tenants': True})
         return servers
 
 
